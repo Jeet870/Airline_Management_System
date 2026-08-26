@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+dist
+.git
+.gitignore
+.agent
+artifacts
+design-system
+.env
+.env.local
+.DS_Store
