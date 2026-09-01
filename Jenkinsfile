@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:20-alpine'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
         APP_NAME        = 'aeroops-command-center'
@@ -27,15 +22,19 @@ pipeline {
     stages {
         stage('Audit & Environment') {
             steps {
-                echo "🚀 Starting Real-Time CI/CD Pipeline #${BUILD_NUMBER}"
-                sh 'node -v && npm -v'
+                script {
+                    echo "🚀 Starting Real-Time CI/CD Pipeline #${BUILD_NUMBER}"
+                    sh 'docker run --rm node:20-alpine node -v && docker run --rm node:20-alpine npm -v'
+                }
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                echo '📦 Installing Clean NPM Packages...'
-                sh 'npm ci'
+                script {
+                    echo '📦 Installing Clean NPM Packages via Docker Node Container...'
+                    sh 'docker run --rm -v ${WORKSPACE}:/app -w /app node:20-alpine npm ci'
+                }
             }
         }
 
@@ -43,14 +42,18 @@ pipeline {
             parallel {
                 stage('TypeScript Type Check') {
                     steps {
-                        echo '🔍 Running Type Check...'
-                        sh 'npx tsc --noEmit'
+                        script {
+                            echo '🔍 Running TypeScript Type Check...'
+                            sh 'docker run --rm -v ${WORKSPACE}:/app -w /app node:20-alpine npx tsc --noEmit'
+                        }
                     }
                 }
                 stage('Unit & Integration Tests') {
                     steps {
-                        echo '🧪 Executing Test Suite...'
-                        sh 'npm run test:backend || npm test'
+                        script {
+                            echo '🧪 Executing Backend & Roster Compliance Test Suite...'
+                            sh 'docker run --rm -v ${WORKSPACE}:/app -w /app node:20-alpine npm test'
+                        }
                     }
                 }
             }
@@ -58,24 +61,30 @@ pipeline {
 
         stage('Build Production Docker Image') {
             steps {
-                echo '🐳 Building Docker Image...'
-                sh "docker build -t ${APP_NAME}:latest -t ${APP_NAME}:${BUILD_NUMBER} ."
+                script {
+                    echo '🐳 Building Container Image...'
+                    sh "docker build -t ${APP_NAME}:latest -t ${APP_NAME}:${BUILD_NUMBER} ."
+                }
             }
         }
 
         stage('Real-Time Hot Deployment') {
             steps {
-                echo '⚡ Deploying Updated Application Container in Real-Time...'
-                sh 'docker-compose down || true'
-                sh 'docker-compose up -d --build'
+                script {
+                    echo '⚡ Deploying Updated Application Container in Real-Time...'
+                    sh 'docker-compose down || true'
+                    sh 'docker-compose up -d --build'
+                }
             }
         }
 
         stage('Automated Health Check') {
             steps {
-                echo '🩺 Verifying Deployment Availability...'
-                sleep 5
-                sh "curl --fail -s ${HEALTH_ENDPOINT} || exit 1"
+                script {
+                    echo '🩺 Verifying Deployment Availability...'
+                    sleep 5
+                    sh "curl --fail -s ${HEALTH_ENDPOINT} || exit 1"
+                }
             }
         }
     }
